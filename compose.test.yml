@@ -1,0 +1,58 @@
+name: money-extra-verification
+services:
+  db-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: verification
+      POSTGRES_USER: verification
+      POSTGRES_PASSWORD: local-test-only
+    tmpfs: /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U verification -d verification"]
+      interval: 2s
+      retries: 20
+  redis-test:
+    image: redis:8-alpine
+  api-test:
+    image: money-extra-verification-tests
+    volumes:
+      - ./backend:/app/backend:ro
+    environment:
+      DATABASE_URL: postgresql+asyncpg://verification:local-test-only@db-test:5432/verification
+      REDIS_URL: redis://redis-test:6379/1
+      ADMIN_USERNAME: verification_operator
+      APP_SECRET_KEY: isolated-verification-not-a-production-secret
+      ADMIN_PASSWORD: verification-local-only
+      TELEGRAM_AFFILIATE_PUBLISH_ENABLED: "false"
+    command: [sh, -c, "alembic upgrade head && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"]
+    networks:
+      default:
+        aliases: [affiliate-api]
+    depends_on:
+      db-test:
+        condition: service_healthy
+  web-test:
+    build: ./frontend
+    ports: ["127.0.0.1:3091:80"]
+    depends_on: [api-test]
+  tests:
+    volumes:
+      - ./backend:/app/backend:ro
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://verification:local-test-only@db-test:5432/verification
+      REDIS_URL: redis://redis-test:6379/0
+      TELEGRAM_BOT_TOKEN: ""
+      GROQ_API_KEY: ""
+      TELEGRAM_AFFILIATE_PUBLISH_ENABLED: "false"
+      RUN_ISOLATED_INTEGRATION: "1"
+      APP_SECRET_KEY: isolated-verification-not-a-production-secret
+      ADMIN_PASSWORD: isolated-test-password
+    depends_on:
+      db-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+    command: [sh, -c, "alembic upgrade head && pytest"]

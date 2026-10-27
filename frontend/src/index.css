@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.preview-dialog { width: min(1100px, calc(100vw - 24px)); height: min(850px, calc(100dvh - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 0; border-radius: 24px; color: #1e293b; }
+.preview-dialog::backdrop { background: rgb(15 23 42 / .65); backdrop-filter: blur(4px); }
+:focus-visible { outline: 3px solid #d97706; outline-offset: 3px; }
+.settings-form fieldset { min-width: 0; }
+.settings-form[data-active-section="scoring"] > fieldset:not([data-section="scoring"]),
+.settings-form[data-active-section="cadence"] > fieldset:not([data-section="cadence"]),
+.settings-form[data-active-section="content"] > fieldset:not([data-section="content"]),
+.settings-form[data-active-section="editorial"] > fieldset:not([data-section="editorial"]),
+.settings-form[data-active-section="trust"] > fieldset:not([data-section="trust"]),
+.settings-form[data-active-section="telegram"] > fieldset:not([data-section="telegram"]),
+.settings-form[data-active-section="data"] > fieldset:not([data-section="data"]) { display: none; }
+@media (max-width: 640px) { .settings-form input, .settings-form select, .settings-form textarea { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #172033; background: #f5f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 80% -10%, #fff4cc 0, transparent 28rem), #f5f7fb; }
+body { scrollbar-color: #cbd5e1 transparent; }
+::selection { background: #ffdf70; color: #172033; }
+button, input, select { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #ffcd38; outline-offset: 2px; }
+
+@layer components {
+  .card { @apply rounded-3xl border border-slate-200/70 bg-white p-6 shadow-card transition-shadow duration-200; }
+  .button-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2.5 font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50; }
+  .button-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2.5 font-semibold text-ink transition hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50; }
+  .label { @apply text-xs font-bold uppercase tracking-[.16em] text-slate-500; }
+  .page-title { @apply mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl; }
+  .input { @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm; }
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold; }
+  .notice { @apply rounded-xl px-4 py-2.5 text-sm font-medium; }
+  .metric-pill { @apply inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm; }
+  .table-head { @apply border-b border-black/5 bg-slate-50 text-xs uppercase tracking-wider text-slate-500; }
+}

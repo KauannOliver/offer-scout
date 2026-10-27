@@ -1,0 +1,146 @@
+name: money-extra
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  env_file: .env
+  volumes:
+    - artifacts:/data/artifacts
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  backend-tests:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://disabled:disabled@invalid/test_disabled
+      APP_SECRET_KEY: isolated-verification-not-a-production-secret
+      ADMIN_PASSWORD: isolated-test-password
+      REDIS_URL: redis://invalid:6379/15
+      TELEGRAM_AFFILIATE_PUBLISH_ENABLED: "false"
+    profiles: ["test"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["pytest"]
+
+  affiliate-api:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  affiliate-worker:
+    <<: *backend
+    environment:
+      WORKER_ROLE: general
+    command: ["celery", "-A", "backend.app.worker.celery_app", "worker", "-Q", "default", "--loglevel=INFO", "--concurrency=2"]
+
+  affiliate-browser-worker:
+    <<: *backend
+    volumes:
+      - browser_profile:/data/browser-profile
+      - artifacts:/data/artifacts
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.browser
+    environment:
+      DISPLAY: ":99"
+      WORKER_ROLE: browser
+    ports:
+      - "127.0.0.1:7900:7900"
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status celery | grep -q RUNNING && supervisorctl status chrome | grep -q RUNNING && python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:9222/json/version')\""]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+
+  affiliate-scheduler:
+    <<: *backend
+    volumes: []
+    command: ["celery", "-A", "backend.app.worker.celery_app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+
+  affiliate-telegram-bot:
+    <<: *backend
+    volumes: []
+    command: ["python", "-m", "backend.app.bot"]
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+
+  affiliate-frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:3080:80"
+    depends_on:
+      affiliate-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: affiliate
+      POSTGRES_USER: affiliate
+      POSTGRES_PASSWORD: affiliate
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U affiliate -d affiliate"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  postgres-backup:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: affiliate
+      POSTGRES_USER: affiliate
+      POSTGRES_PASSWORD: affiliate
+      BACKUP_RETENTION_DAYS: "14"
+    volumes:
+      - ./backend/scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - postgres_backups:/backups
+    command: ["sh", "/usr/local/bin/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  browser_profile:
+  artifacts:
+  postgres_backups:

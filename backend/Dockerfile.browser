@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DISPLAY=:99 \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xvfb x11vnc fluxbox novnc websockify supervisor fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir uv==0.8.15
+RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --create-home app
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --no-dev --no-install-project
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN .venv/bin/playwright install --with-deps chromium
+RUN chromium_path="$(find /ms-playwright -path '*/chrome-linux64/chrome' -type f | head -n 1)" \
+    && test -n "$chromium_path" \
+    && ln -s "$chromium_path" /usr/local/bin/money-extra-chromium
+COPY backend ./backend
+COPY alembic.ini ./alembic.ini
+RUN uv sync --frozen --no-dev
+COPY backend/supervisord.conf /etc/supervisor/conf.d/money-extra.conf
+RUN mkdir -p /data/artifacts /data/browser-profile && chown -R app:app /data
+EXPOSE 7900
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
