@@ -65,6 +65,18 @@ To stop isolated services after testing, run `docker compose -f compose.test.yml
 - `frontend/src`: dashboard and API client.
 - `compose.test.yml`: isolated test services.
 
+
+
+## Snapshot review
+
+Editorial AI generates offer copy from validated facts with a deterministic fallback. Private Telegram assistance is a separate flow; it does not replace editorial approval or the publication queue. Public delivery remains opt-in and was not triggered during this review.
+
+Git-triggered Vercel deployment is disabled in the included web configurations. This update publishes source and documentation only.
+
 ## License
 
-No license has been granted for this repository. All rights are reserved by the copyright holder.
+Original application code is available under the [MIT license](LICENSE). Third-party libraries, models, fonts and bundled assets retain their own licenses.
+
+## Verification record
+
+See [snapshot checks and remaining limitations](docs/VERIFICATION.md).
